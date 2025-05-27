@@ -1,24 +1,7 @@
-# Core dependencies
-numpy
+nba_api
 pandas
-scipy
-
-# Machine Learning
-scikit-learn
-xgboost
-torch
-torchvision
-torchaudio
-tensorflow
-
-# Data Processing & Scraping
-beautifulsoup4
-requests
-lxml
-
-# Visualization
+numpy
 matplotlib
 seaborn
-
-# Jupyter Notebook (for EDA)
-jupyterlab
+scikit-learn
+jupyter

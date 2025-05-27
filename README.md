@@ -1,27 +1,20 @@
 # Board Man Gets Paid
 
-##  Machine Learning Project
 **Author:** Jan Kasen  
 
 ### Project Overview
-Board Man is a machine learning project that predicts **NBA championship odds** based on key team statistics like **win percentage** and **net rating**. Using historical data from Basketball Reference, the model aims to identify the strongest contenders each season.
+This is an educational project focused on NBA data analysis. I am yet to figure out the exact direction.
 
-### 📂 Project Structure
-```
-boardman/
-
-```
-
-### Setup & Installation
+### Setup
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/boardman.git
+   git clone https://github.com/jankasen/boardman.git
    cd boardman
    ```
 
 2. **Create a Conda environment**
    ```bash
-   conda create --name boardman python=3.10
+   conda create --name boardman python=3.11
    conda activate boardman
    ```
 
@@ -29,7 +22,3 @@ boardman/
    ```bash
    pip install -r requirements.txt
    ```
-
-### Data Sources
-- **Basketball Reference** ([basketball-reference.com](https://www.basketball-reference.com/))
-- Additional APIs for advanced metrics (e.g., RAPTOR, EPM, Vegas odds)
