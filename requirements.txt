@@ -1,4 +1,9 @@
 nba_api
+basketball-reference--scraper
+html5lib
+selenium
+beautifulsoup4
+
 pandas
 numpy
 matplotlib
