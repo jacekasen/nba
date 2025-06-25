@@ -3,6 +3,7 @@ basketball-reference--scraper
 html5lib
 selenium
 beautifulsoup4
+webdriver_manager
 
 pandas
 numpy
