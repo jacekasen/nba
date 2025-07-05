@@ -1,0 +1,6 @@
+player,reason
+Bob O'Brien,"Unknown error: HTTPConnectionPool(host='localhost', port=61036): Read timed out. (read timeout=120)"
+Randy Smith,"Unknown error: HTTPConnectionPool(host='localhost', port=54520): Read timed out. (read timeout=120)"
+Keith Van Horn,"Unknown error: HTTPConnectionPool(host='localhost', port=54687): Read timed out. (read timeout=120)"
+Norm Van Lier,"Unknown error: HTTPConnectionPool(host='localhost', port=54687): Read timed out. (read timeout=120)"
+Donovan Williams,"Unknown error: HTTPConnectionPool(host='localhost', port=59847): Read timed out. (read timeout=120)"
