@@ -19,12 +19,16 @@ RATE_LIMIT_SECONDS = 3.0  # Basketball-Reference allows 20 requests/minute
 CHECKPOINT_EVERY = 25
 REFRESH_LOOKBACK = 2  # rescrape players whose latest season is among the N most recent seasons in the data, since a new season may have been added for them since last run
 TARGET_STATS = ["year_id", "age", "team_name_abbr", "games", "mp", "per", "bpm", "vorp", "ws", "ws_per_48"]
-COLUMNS = ["player_name"] + TARGET_STATS
+COLUMNS = ["player_name", "player_url"] + TARGET_STATS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_URLS = REPO_ROOT / "data" / "01-pages" / "all_nba_players.csv"
-DEFAULT_OUTPUT = REPO_ROOT / "data" / "02-player-stats-extraction" / "nba_complete_player_stats.csv"
+DEFAULT_OUTPUT = REPO_ROOT / "data" / "nba_player_stats.csv"
 DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "data" / "02-player-stats-extraction" / "checkpoints"
+
+# player_name is not a stable key: Basketball-Reference has dozens of distinct players who share
+# a name (e.g. two different "Bobby Jones"s). player_url is the real unique identifier, so all
+# resume/refresh/merge logic below keys off it instead of the name.
 
 
 def build_driver() -> webdriver.Chrome:
@@ -52,7 +56,7 @@ def scrape_player(driver: webdriver.Chrome, player_name: str, player_url: str) -
         if not season or season.startswith("Career"):
             continue
 
-        season_data = {"player_name": player_name}
+        season_data = {"player_name": player_name, "player_url": player_url}
         for stat in TARGET_STATS:
             cell = row.find(["th", "td"], {"data-stat": stat})
             value = cell.text.strip() if cell else ""
@@ -68,13 +72,13 @@ def load_existing(output_path: Path) -> pd.DataFrame:
     return pd.DataFrame(columns=COLUMNS)
 
 
-def players_needing_refresh(existing: pd.DataFrame, lookback: int) -> set[str]:
-    """Players whose latest recorded season is recent enough that a new season may since have been added."""
+def urls_needing_refresh(existing: pd.DataFrame, lookback: int) -> set[str]:
+    """player_urls whose latest recorded season is recent enough that a new season may since have been added."""
     if existing.empty:
         return set()
     recent_seasons = set(sorted(existing["year_id"].dropna().unique())[-lookback:])
-    latest_by_player = existing.groupby("player_name")["year_id"].max()
-    return set(latest_by_player[latest_by_player.isin(recent_seasons)].index)
+    latest_by_url = existing.groupby("player_url")["year_id"].max()
+    return set(latest_by_url[latest_by_url.isin(recent_seasons)].index)
 
 
 def collect(
@@ -90,15 +94,15 @@ def collect(
     existing = load_existing(output_path)
 
     if force:
-        todo_names = set(df_players["player_name"])
+        todo_urls = set(df_players["player_url"])
     else:
-        have_stats = set(existing["player_name"])
-        missing = set(df_players["player_name"]) - have_stats
-        needs_refresh = players_needing_refresh(existing, refresh_lookback)
-        todo_names = missing | needs_refresh
+        have_stats = set(existing["player_url"])
+        missing = set(df_players["player_url"]) - have_stats
+        needs_refresh = urls_needing_refresh(existing, refresh_lookback)
+        todo_urls = missing | needs_refresh
         print(f"{len(missing)} new players, {len(needs_refresh)} recently-active players to refresh")
 
-    todo = df_players[df_players["player_name"].isin(todo_names)]
+    todo = df_players[df_players["player_url"].isin(todo_urls)]
     if limit:
         todo = todo.head(limit)
 
@@ -120,7 +124,7 @@ def collect(
                 new_frames.append(scrape_player(driver, name, url))
             except (TimeoutException, WebDriverException) as exc:
                 print(f"  Failed: {exc}")
-                failures.append({"player_name": name, "reason": str(exc)})
+                failures.append({"player_name": name, "player_url": url, "reason": str(exc)})
 
             if idx % CHECKPOINT_EVERY == 0:
                 df_checkpoint = pd.concat(new_frames, ignore_index=True) if new_frames else pd.DataFrame(columns=COLUMNS)
@@ -132,12 +136,12 @@ def collect(
         driver.quit()
 
     df_new = pd.concat(new_frames, ignore_index=True) if new_frames else pd.DataFrame(columns=COLUMNS)
-    scraped_names = set(df_new["player_name"].unique())
-    existing_kept = existing[~existing["player_name"].isin(scraped_names)]
+    scraped_urls = set(df_new["player_url"].unique())
+    existing_kept = existing[~existing["player_url"].isin(scraped_urls)]
     df_final = pd.concat([existing_kept, df_new], ignore_index=True)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df_final.to_csv(output_path, index=False)
-    print(f"\nSaved {len(df_final)} season rows ({df_final['player_name'].nunique()} players) to {output_path}")
+    print(f"\nSaved {len(df_final)} season rows ({df_final['player_url'].nunique()} players) to {output_path}")
 
     if failures:
         failures_path = output_path.parent / "stats_collection_failures.csv"
