@@ -9,7 +9,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from ml.config import FeatureConfig, MODEL_FEATURES_PATH, PLAYER_SEASONS_PATH
+from ml.config import FeatureConfig, MODEL_FEATURES_PATH, PLAYER_SEASONS_PATH, TRAJECTORY_FEATURE_COLUMNS
 
 
 def _parse_args() -> argparse.Namespace:
@@ -126,47 +126,15 @@ def build_features(player_seasons: pd.DataFrame, threshold: float) -> pd.DataFra
     df["target_bpm_change"] = np.where(has_consecutive_next, next_bpm - df["bpm"], np.nan)
     df["target_trajectory"] = df["target_bpm_change"].apply(lambda x: classify_trajectory(x, threshold))
 
-    ordered_cols = [
+    metadata_cols = [
         "player_id",
         "player_name",
         "player_url",
         "season",
-        "season_start",
         "season_end",
-        "age",
-        "experience",
-        "qualified_seasons_to_date",
-        "season_gap_from_prev",
-        "is_consecutive_from_prev",
-        "changed_team",
-        "games",
-        "mp",
-        "mpg",
-        "per",
-        "bpm",
-        "vorp",
-        "ws",
-        "ws_per_48",
-        "bpm_delta_1",
-        "per_delta_1",
-        "ws_per_48_delta_1",
-        "games_delta_1",
-        "mp_delta_1",
-        "mpg_delta_1",
-        "bpm_delta_2",
-        "bpm_roll2",
-        "bpm_roll3",
-        "per_roll2",
-        "per_roll3",
-        "ws_per_48_roll2",
-        "ws_per_48_roll3",
-        "bpm_slope_3",
-        "prior_career_high_bpm",
-        "career_high_bpm_through_t",
-        "distance_from_career_high_bpm",
-        "target_bpm_change",
-        "target_trajectory",
     ]
+    target_cols = ["target_bpm_change", "target_trajectory"]
+    ordered_cols = metadata_cols + list(TRAJECTORY_FEATURE_COLUMNS) + target_cols
 
     return df[ordered_cols].copy()
 

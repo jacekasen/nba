@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from ml.config import TRAJECTORY_FEATURE_COLUMNS
 from ml.features import build_features, classify_trajectory
 
 
@@ -86,3 +87,10 @@ def test_rolling_resets_after_gap() -> None:
     assert bool(row_2023["is_consecutive_from_prev"]) is False
     # Gap-aware rolling should restart from current row, not average old seasons.
     assert float(row_2023["bpm_roll2"]) == float(row_2023["bpm"])
+
+
+def test_feature_columns_are_reused_from_config() -> None:
+    features = build_features(_sample_player_seasons(), threshold=0.5)
+
+    feature_columns_in_output = [col for col in features.columns if col in TRAJECTORY_FEATURE_COLUMNS]
+    assert feature_columns_in_output == TRAJECTORY_FEATURE_COLUMNS

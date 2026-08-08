@@ -28,6 +28,40 @@ CONFUSION_MATRIX_PNG_PATH = MODELS_DIR / "confusion_matrix.png"
 FEATURE_IMPORTANCE_PATH = MODELS_DIR / "feature_importance.csv"
 
 TRAJECTORY_LABELS = ["improving", "stable", "regressing"]
+TRAJECTORY_FEATURE_COLUMNS = [
+    "age",
+    "experience",
+    "qualified_seasons_to_date",
+    "season_start",
+    "season_gap_from_prev",
+    "is_consecutive_from_prev",
+    "changed_team",
+    "games",
+    "mp",
+    "mpg",
+    "per",
+    "bpm",
+    "vorp",
+    "ws",
+    "ws_per_48",
+    "bpm_delta_1",
+    "per_delta_1",
+    "ws_per_48_delta_1",
+    "games_delta_1",
+    "mp_delta_1",
+    "mpg_delta_1",
+    "bpm_delta_2",
+    "bpm_roll2",
+    "bpm_roll3",
+    "per_roll2",
+    "per_roll3",
+    "ws_per_48_roll2",
+    "ws_per_48_roll3",
+    "bpm_slope_3",
+    "prior_career_high_bpm",
+    "career_high_bpm_through_t",
+    "distance_from_career_high_bpm",
+]
 
 
 @dataclass(frozen=True)

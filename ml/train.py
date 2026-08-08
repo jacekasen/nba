@@ -40,6 +40,7 @@ from ml.config import (
     REGRESSOR_MODEL_PATH,
     SplitConfig,
     TRAINING_METADATA_PATH,
+    TRAJECTORY_FEATURE_COLUMNS,
     TRAJECTORY_LABELS,
 )
 from ml.evaluate import ClassificationOutputs, evaluate_classifier, evaluate_regressor, grouped_regression_error
@@ -112,40 +113,7 @@ def _split_masks(df: pd.DataFrame, split: SplitConfig) -> tuple[pd.Series, pd.Se
 
 
 def _trajectory_feature_columns() -> list[str]:
-    return [
-        "age",
-        "experience",
-        "qualified_seasons_to_date",
-        "season_start",
-        "season_gap_from_prev",
-        "is_consecutive_from_prev",
-        "changed_team",
-        "games",
-        "mp",
-        "mpg",
-        "per",
-        "bpm",
-        "vorp",
-        "ws",
-        "ws_per_48",
-        "bpm_delta_1",
-        "per_delta_1",
-        "ws_per_48_delta_1",
-        "games_delta_1",
-        "mp_delta_1",
-        "mpg_delta_1",
-        "bpm_delta_2",
-        "bpm_roll2",
-        "bpm_roll3",
-        "per_roll2",
-        "per_roll3",
-        "ws_per_48_roll2",
-        "ws_per_48_roll3",
-        "bpm_slope_3",
-        "prior_career_high_bpm",
-        "career_high_bpm_through_t",
-        "distance_from_career_high_bpm",
-    ]
+    return list(TRAJECTORY_FEATURE_COLUMNS)
 
 
 def _fit_classifier_candidates(
