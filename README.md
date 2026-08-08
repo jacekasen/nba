@@ -72,7 +72,7 @@ with bad seasons "bounce back" (the ones who don't simply vanish from the data).
   with replacement level at -2.0 BPM (clamped so exiting never counts as improvement).
 
 ## Model Targets
-- `target_trajectory`: multiclass label from next-season BPM change threshold (default ±0.75 BPM), with exits labeled `regressing`
+- `target_trajectory`: multiclass label from next-season BPM change with asymmetric bands (improving > +0.75, regressing < -1.25, otherwise stable — minor declines sit inside the metric's noise floor), with exits labeled `regressing`
 - `target_bpm_change`: numeric next-season BPM delta (survivors only)
 - `target_played_next`: binary continuation label (qualified consecutive season logged or not)
 - `near_peak`: binary label for completed careers only, based on smoothed BPM proximity to eventual peak

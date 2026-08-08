@@ -23,21 +23,35 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--input", type=Path, default=PLAYER_SEASONS_PATH, help="Canonical player-seasons CSV")
     parser.add_argument("--output", type=Path, default=MODEL_FEATURES_PATH, help="Output features CSV")
     parser.add_argument(
-        "--trajectory-threshold",
+        "--improving-threshold",
         type=float,
-        default=FeatureConfig().trajectory_threshold,
-        help="Absolute BPM change threshold for stable trajectory class",
+        default=FeatureConfig().improving_threshold,
+        help="BPM gain beyond which next season counts as improving",
+    )
+    parser.add_argument(
+        "--regressing-threshold",
+        type=float,
+        default=FeatureConfig().regressing_threshold,
+        help="BPM decline magnitude beyond which next season counts as regressing",
     )
     return parser.parse_args()
 
 
-def classify_trajectory(delta: float | None, threshold: float) -> str | None:
-    """Map next-season BPM change to improving/stable/regressing."""
+def classify_trajectory(
+    delta: float | None,
+    improving_threshold: float,
+    regressing_threshold: float,
+) -> str | None:
+    """Map next-season BPM change to improving/stable/regressing.
+
+    Bands are asymmetric: minor declines (within `regressing_threshold`) are
+    considered stable, since they sit inside the metric's noise floor.
+    """
     if delta is None or pd.isna(delta):
         return None
-    if delta > threshold:
+    if delta > improving_threshold:
         return "improving"
-    if delta < -threshold:
+    if delta < -regressing_threshold:
         return "regressing"
     return "stable"
 
@@ -82,7 +96,11 @@ def _add_gap_aware_rolling_features(group: pd.DataFrame) -> pd.DataFrame:
     return group
 
 
-def build_features(player_seasons: pd.DataFrame, threshold: float) -> pd.DataFrame:
+def build_features(
+    player_seasons: pd.DataFrame,
+    improving_threshold: float = FeatureConfig().improving_threshold,
+    regressing_threshold: float = FeatureConfig().regressing_threshold,
+) -> pd.DataFrame:
     """Create leakage-safe features and next-season targets."""
     df = player_seasons.copy()
     df = df.sort_values(["player_url", "season_start", "season_end"]).reset_index(drop=True)
@@ -152,7 +170,9 @@ def build_features(player_seasons: pd.DataFrame, threshold: float) -> pd.DataFra
         df["next_season_observable"], has_consecutive_next.astype(float), np.nan
     )
 
-    trajectory_if_played = df["target_bpm_change"].apply(lambda x: classify_trajectory(x, threshold))
+    trajectory_if_played = df["target_bpm_change"].apply(
+        lambda x: classify_trajectory(x, improving_threshold, regressing_threshold)
+    )
     df["target_trajectory"] = np.select(
         [has_consecutive_next, df["next_season_observable"]],
         [trajectory_if_played, "regressing"],
@@ -182,7 +202,11 @@ def main() -> None:
     """CLI entry point for feature generation."""
     args = _parse_args()
     input_df = pd.read_csv(args.input)
-    features = build_features(input_df, threshold=args.trajectory_threshold)
+    features = build_features(
+        input_df,
+        improving_threshold=args.improving_threshold,
+        regressing_threshold=args.regressing_threshold,
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     features.to_csv(args.output, index=False)

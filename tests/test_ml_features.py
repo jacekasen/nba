@@ -65,14 +65,16 @@ def _sample_player_seasons() -> pd.DataFrame:
 
 
 def test_trajectory_threshold_boundaries() -> None:
-    assert classify_trajectory(0.5, threshold=0.5) == "stable"
-    assert classify_trajectory(-0.5, threshold=0.5) == "stable"
-    assert classify_trajectory(0.51, threshold=0.5) == "improving"
-    assert classify_trajectory(-0.51, threshold=0.5) == "regressing"
+    # Asymmetric bands: minor declines are stable, only larger drops regress.
+    assert classify_trajectory(0.75, improving_threshold=0.75, regressing_threshold=1.25) == "stable"
+    assert classify_trajectory(-1.25, improving_threshold=0.75, regressing_threshold=1.25) == "stable"
+    assert classify_trajectory(0.76, improving_threshold=0.75, regressing_threshold=1.25) == "improving"
+    assert classify_trajectory(-1.0, improving_threshold=0.75, regressing_threshold=1.25) == "stable"
+    assert classify_trajectory(-1.26, improving_threshold=0.75, regressing_threshold=1.25) == "regressing"
 
 
 def test_no_target_across_non_consecutive_gap() -> None:
-    features = build_features(_sample_player_seasons(), threshold=0.5)
+    features = build_features(_sample_player_seasons())
 
     row_2021 = features.loc[features["season_start"] == 2021].iloc[0]
     # No consecutive qualified next season: BPM delta is unknowable, but the
@@ -83,7 +85,7 @@ def test_no_target_across_non_consecutive_gap() -> None:
 
 
 def test_last_data_season_targets_are_censored() -> None:
-    features = build_features(_sample_player_seasons(), threshold=0.5)
+    features = build_features(_sample_player_seasons())
 
     row_2023 = features.loc[features["season_start"] == 2023].iloc[0]
     assert pd.isna(row_2023["target_bpm_change"])
@@ -92,7 +94,7 @@ def test_last_data_season_targets_are_censored() -> None:
 
 
 def test_consecutive_season_targets_use_bpm_delta() -> None:
-    features = build_features(_sample_player_seasons(), threshold=0.5)
+    features = build_features(_sample_player_seasons())
 
     row_2020 = features.loc[features["season_start"] == 2020].iloc[0]
     assert row_2020["target_bpm_change"] == 0.8
@@ -101,7 +103,7 @@ def test_consecutive_season_targets_use_bpm_delta() -> None:
 
 
 def test_rolling_resets_after_gap() -> None:
-    features = build_features(_sample_player_seasons(), threshold=0.5)
+    features = build_features(_sample_player_seasons())
     row_2023 = features.loc[features["season_start"] == 2023].iloc[0]
 
     assert row_2023["season_gap_from_prev"] == 2
@@ -111,7 +113,7 @@ def test_rolling_resets_after_gap() -> None:
 
 
 def test_feature_columns_are_reused_from_config() -> None:
-    features = build_features(_sample_player_seasons(), threshold=0.5)
+    features = build_features(_sample_player_seasons())
 
     feature_columns_in_output = [col for col in features.columns if col in TRAJECTORY_FEATURE_COLUMNS]
     assert feature_columns_in_output == TRAJECTORY_FEATURE_COLUMNS

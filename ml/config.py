@@ -89,9 +89,11 @@ class ModelingThresholds:
 class FeatureConfig:
     """Feature and target settings for the modeling table."""
 
-    # ±0.75 BPM: narrower bands are below the regressor's ~1.2 MAE resolution,
-    # which left "stable" nearly unlearnable.
-    trajectory_threshold: float = 0.75
+    # Asymmetric bands: gains beyond +0.75 count as improving, but a decline
+    # only counts as regressing beyond -1.25 (~one regressor MAE) — minor dips
+    # are within measurement noise and are treated as stable.
+    improving_threshold: float = 0.75
+    regressing_threshold: float = 1.25
 
 
 @dataclass(frozen=True)
