@@ -11,3 +11,5 @@ matplotlib
 seaborn
 scikit-learn
 jupyter
+joblib
+pytest

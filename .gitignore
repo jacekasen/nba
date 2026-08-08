@@ -1,6 +1,13 @@
 __pycache__/
 *.ipynb_checkpoints/
 .env
+.env.local
 .DS_Store
 docs/prompt.md
 docs/prompt2.md
+
+# Generated ML artifacts
+models/*
+!models/.gitkeep
+data/05-modeling/*
+!data/05-modeling/.gitkeep

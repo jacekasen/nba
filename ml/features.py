@@ -1,0 +1,194 @@
+"""Feature engineering for trajectory and BPM-delta prediction."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+from typing import Iterable
+
+import numpy as np
+import pandas as pd
+
+from ml.config import FeatureConfig, MODEL_FEATURES_PATH, PLAYER_SEASONS_PATH
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=PLAYER_SEASONS_PATH, help="Canonical player-seasons CSV")
+    parser.add_argument("--output", type=Path, default=MODEL_FEATURES_PATH, help="Output features CSV")
+    parser.add_argument(
+        "--trajectory-threshold",
+        type=float,
+        default=FeatureConfig().trajectory_threshold,
+        help="Absolute BPM change threshold for stable trajectory class",
+    )
+    return parser.parse_args()
+
+
+def classify_trajectory(delta: float | None, threshold: float) -> str | None:
+    """Map next-season BPM change to improving/stable/regressing."""
+    if delta is None or pd.isna(delta):
+        return None
+    if delta > threshold:
+        return "improving"
+    if delta < -threshold:
+        return "regressing"
+    return "stable"
+
+
+def _rolling_slope(values: Iterable[float]) -> float | np.nan:
+    arr = np.asarray(list(values), dtype=float)
+    if len(arr) < 3 or np.isnan(arr).any():
+        return np.nan
+    x = np.arange(len(arr), dtype=float)
+    slope = np.polyfit(x, arr, deg=1)[0]
+    return float(slope)
+
+
+def _add_gap_aware_rolling_features(group: pd.DataFrame) -> pd.DataFrame:
+    group = group.copy()
+    group["season_gap_from_prev"] = group["season_start"].diff().fillna(1).astype(int)
+    group["is_consecutive_from_prev"] = group["season_gap_from_prev"].eq(1)
+    group["streak_id"] = (~group["is_consecutive_from_prev"]).cumsum()
+
+    metric_cols = ["bpm", "per", "ws_per_48"]
+    for metric in metric_cols:
+        group[f"{metric}_roll2"] = (
+            group.groupby("streak_id", group_keys=False)[metric]
+            .rolling(window=2, min_periods=1)
+            .mean()
+            .reset_index(level=0, drop=True)
+        )
+        group[f"{metric}_roll3"] = (
+            group.groupby("streak_id", group_keys=False)[metric]
+            .rolling(window=3, min_periods=1)
+            .mean()
+            .reset_index(level=0, drop=True)
+        )
+
+    group["bpm_slope_3"] = (
+        group.groupby("streak_id", group_keys=False)["bpm"]
+        .rolling(window=3, min_periods=3)
+        .apply(_rolling_slope, raw=False)
+        .reset_index(level=0, drop=True)
+    )
+
+    return group
+
+
+def build_features(player_seasons: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    """Create leakage-safe features and next-season targets."""
+    df = player_seasons.copy()
+    df = df.sort_values(["player_url", "season_start", "season_end"]).reset_index(drop=True)
+
+    df["mpg"] = np.where(df["games"] > 0, df["mp"] / df["games"], np.nan)
+    df["experience"] = df.groupby("player_url").cumcount()
+    df["qualified_seasons_to_date"] = df.groupby("player_url").cumcount() + 1
+    df["changed_team"] = (
+        df.groupby("player_url")["team_name_abbr"]
+        .transform(lambda s: s.ne(s.shift(1)).astype(int))
+        .fillna(0)
+        .astype(int)
+    )
+
+    lag_features = {
+        "bpm": "bpm_delta_1",
+        "per": "per_delta_1",
+        "ws_per_48": "ws_per_48_delta_1",
+        "games": "games_delta_1",
+        "mp": "mp_delta_1",
+        "mpg": "mpg_delta_1",
+    }
+
+    season_diff_1 = df.groupby("player_url")["season_start"].diff()
+    consecutive_1 = season_diff_1.eq(1)
+    for col, out_col in lag_features.items():
+        delta = df[col] - df.groupby("player_url")[col].shift(1)
+        df[out_col] = np.where(consecutive_1, delta, np.nan)
+
+    season_diff_2 = df["season_start"] - df.groupby("player_url")["season_start"].shift(2)
+    bpm_delta_2 = df["bpm"] - df.groupby("player_url")["bpm"].shift(2)
+    df["bpm_delta_2"] = np.where(season_diff_2.eq(2), bpm_delta_2, np.nan)
+
+    rolled_frames = []
+    for _, player_group in df.groupby("player_url", sort=False):
+        rolled_frames.append(_add_gap_aware_rolling_features(player_group))
+    df = pd.concat(rolled_frames, ignore_index=True)
+
+    df["career_high_bpm_through_t"] = df.groupby("player_url")["bpm"].cummax()
+    df["prior_career_high_bpm"] = df.groupby("player_url")["career_high_bpm_through_t"].shift(1)
+    df["distance_from_career_high_bpm"] = df["career_high_bpm_through_t"] - df["bpm"]
+
+    next_season_start = df.groupby("player_url")["season_start"].shift(-1)
+    next_bpm = df.groupby("player_url")["bpm"].shift(-1)
+    has_consecutive_next = (next_season_start - df["season_start"]).eq(1)
+
+    df["target_bpm_change"] = np.where(has_consecutive_next, next_bpm - df["bpm"], np.nan)
+    df["target_trajectory"] = df["target_bpm_change"].apply(lambda x: classify_trajectory(x, threshold))
+
+    ordered_cols = [
+        "player_id",
+        "player_name",
+        "player_url",
+        "season",
+        "season_start",
+        "season_end",
+        "age",
+        "experience",
+        "qualified_seasons_to_date",
+        "season_gap_from_prev",
+        "is_consecutive_from_prev",
+        "changed_team",
+        "games",
+        "mp",
+        "mpg",
+        "per",
+        "bpm",
+        "vorp",
+        "ws",
+        "ws_per_48",
+        "bpm_delta_1",
+        "per_delta_1",
+        "ws_per_48_delta_1",
+        "games_delta_1",
+        "mp_delta_1",
+        "mpg_delta_1",
+        "bpm_delta_2",
+        "bpm_roll2",
+        "bpm_roll3",
+        "per_roll2",
+        "per_roll3",
+        "ws_per_48_roll2",
+        "ws_per_48_roll3",
+        "bpm_slope_3",
+        "prior_career_high_bpm",
+        "career_high_bpm_through_t",
+        "distance_from_career_high_bpm",
+        "target_bpm_change",
+        "target_trajectory",
+    ]
+
+    return df[ordered_cols].copy()
+
+
+def main() -> None:
+    """CLI entry point for feature generation."""
+    args = _parse_args()
+    input_df = pd.read_csv(args.input)
+    features = build_features(input_df, threshold=args.trajectory_threshold)
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    features.to_csv(args.output, index=False)
+
+    total_rows = len(features)
+    target_rows = features["target_trajectory"].notna().sum()
+    print("=== Feature Engineering Summary ===")
+    print(f"Rows written: {total_rows:,}")
+    print(f"Rows with next-season target: {target_rows:,}")
+    print(f"Unique players: {features['player_url'].nunique():,}")
+    print(f"Season range: {int(features['season_start'].min())} -> {int(features['season_start'].max())}")
+    print(f"Saved features to: {args.output}")
+
+
+if __name__ == "__main__":
+    main()
