@@ -21,10 +21,15 @@ from sklearn.metrics import (
 
 @dataclass
 class ClassificationOutputs:
-    """Container for classification prediction outputs."""
+    """Container for classification prediction outputs.
+
+    `classes` is the column order of `y_proba` (the fitted model's `classes_`).
+    When omitted, columns are assumed to follow sklearn's sorted-label order.
+    """
 
     y_pred: np.ndarray
     y_proba: np.ndarray
+    classes: list[str] | None = None
 
 
 def multiclass_brier_score(y_true: pd.Series, y_proba: np.ndarray, labels: list[str]) -> float:
@@ -45,6 +50,12 @@ def evaluate_classifier(
     y_pred = outputs.y_pred
     y_proba = outputs.y_proba
 
+    # Align probability columns to sorted label order, which is what log_loss
+    # (via LabelBinarizer) and the Brier helper below expect.
+    sorted_labels = sorted(labels)
+    proba_classes = outputs.classes if outputs.classes is not None else sorted_labels
+    y_proba = y_proba[:, [list(proba_classes).index(label) for label in sorted_labels]]
+
     precision, recall, f1, support = precision_recall_fscore_support(
         y_true, y_pred, labels=labels, zero_division=0
     )
@@ -61,8 +72,8 @@ def evaluate_classifier(
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro", labels=labels, zero_division=0)),
-        "log_loss": float(log_loss(y_true, y_proba, labels=labels)),
-        "multiclass_brier": multiclass_brier_score(y_true, y_proba, labels=labels),
+        "log_loss": float(log_loss(y_true, y_proba, labels=sorted_labels)),
+        "multiclass_brier": multiclass_brier_score(y_true, y_proba, labels=sorted_labels),
         "per_class": per_class,
         "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
     }

@@ -75,8 +75,29 @@ def test_no_target_across_non_consecutive_gap() -> None:
     features = build_features(_sample_player_seasons(), threshold=0.5)
 
     row_2021 = features.loc[features["season_start"] == 2021].iloc[0]
+    # No consecutive qualified next season: BPM delta is unknowable, but the
+    # league kept playing, so the trajectory target is exit-aware "regressing".
     assert pd.isna(row_2021["target_bpm_change"])
-    assert pd.isna(row_2021["target_trajectory"])
+    assert row_2021["target_trajectory"] == "regressing"
+    assert row_2021["target_played_next"] == 0.0
+
+
+def test_last_data_season_targets_are_censored() -> None:
+    features = build_features(_sample_player_seasons(), threshold=0.5)
+
+    row_2023 = features.loc[features["season_start"] == 2023].iloc[0]
+    assert pd.isna(row_2023["target_bpm_change"])
+    assert pd.isna(row_2023["target_trajectory"])
+    assert pd.isna(row_2023["target_played_next"])
+
+
+def test_consecutive_season_targets_use_bpm_delta() -> None:
+    features = build_features(_sample_player_seasons(), threshold=0.5)
+
+    row_2020 = features.loc[features["season_start"] == 2020].iloc[0]
+    assert row_2020["target_bpm_change"] == 0.8
+    assert row_2020["target_trajectory"] == "improving"
+    assert row_2020["target_played_next"] == 1.0
 
 
 def test_rolling_resets_after_gap() -> None:

@@ -14,13 +14,16 @@ import pandas as pd
 
 from ml.config import (
     CLASSIFIER_MODEL_PATH,
+    CONTINUATION_MODEL_PATH,
     CURRENT_PREDICTIONS_PATH,
     FEATURE_COLUMNS_PATH,
     LABEL_ORDER_PATH,
     MODEL_FEATURES_PATH,
     MODEL_VERSION,
     PEAK_MODEL_PATH,
+    PredictionConfig,
     REGRESSOR_MODEL_PATH,
+    REPLACEMENT_BPM,
 )
 
 
@@ -29,14 +32,20 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--features", type=Path, default=MODEL_FEATURES_PATH)
     parser.add_argument("--output", type=Path, default=CURRENT_PREDICTIONS_PATH)
     parser.add_argument(
-        "--allow-incomplete-current-season",
+        "--exclude-incomplete-current-season",
         action="store_true",
-        help="Include rows from the max season_end in source data.",
+        help="Exclude rows from the max season_end in source data.",
+    )
+    parser.add_argument(
+        "--recency-years",
+        type=int,
+        default=PredictionConfig().recency_years,
+        help="Only predict for players whose latest qualified season ends within this many years of the newest season.",
     )
     return parser.parse_args()
 
 
-def _latest_rows(features_df: pd.DataFrame, allow_incomplete_current: bool) -> pd.DataFrame:
+def _latest_rows(features_df: pd.DataFrame, allow_incomplete_current: bool, recency_years: int) -> pd.DataFrame:
     df = features_df.copy()
     if not allow_incomplete_current:
         max_end = int(df["season_end"].max())
@@ -48,11 +57,31 @@ def _latest_rows(features_df: pd.DataFrame, allow_incomplete_current: bool) -> p
         .tail(1)
         .reset_index(drop=True)
     )
+
+    # Only currently-relevant players: drop anyone whose last qualified season
+    # is older than the recency window (otherwise long-retired players would
+    # receive "next season" predictions).
+    max_end = int(latest["season_end"].max())
+    latest = latest[latest["season_end"] >= max_end - recency_years].reset_index(drop=True)
     return latest
 
 
-def _format_factors(row: pd.Series) -> list[str]:
+def _next_season_label(season: str) -> str:
+    """Convert season label like '2025-26' into next season '2026-27'."""
+    text = str(season)
+    start = int(text[:4])
+    next_start = start + 1
+    next_end_suffix = (next_start + 1) % 100
+    return f"{next_start}-{next_end_suffix:02d}"
+
+
+def _format_factors(row: pd.Series, continuation_prob: float | None = None) -> list[str]:
     factors: list[str] = []
+
+    if continuation_prob is not None and continuation_prob < 0.75:
+        factors.append(
+            f"Estimated {1 - continuation_prob:.0%} chance of not logging a qualified season next year."
+        )
 
     if pd.notna(row.get("bpm_delta_1")):
         delta = float(row["bpm_delta_1"])
@@ -109,20 +138,45 @@ def main() -> None:
     classifier = joblib.load(CLASSIFIER_MODEL_PATH)
     regressor = joblib.load(REGRESSOR_MODEL_PATH)
     peak_model = joblib.load(PEAK_MODEL_PATH) if PEAK_MODEL_PATH.exists() else None
+    continuation_model = joblib.load(CONTINUATION_MODEL_PATH) if CONTINUATION_MODEL_PATH.exists() else None
 
-    latest = _latest_rows(features_df, allow_incomplete_current=args.allow_incomplete_current_season)
+    latest = _latest_rows(
+        features_df,
+        allow_incomplete_current=not args.exclude_incomplete_current_season,
+        recency_years=args.recency_years,
+    )
     x = latest[feature_cols]
 
     class_probs = classifier.predict_proba(x)
-    bpm_delta_pred = regressor.predict(x)
+    bpm_delta_if_plays = regressor.predict(x)
+
+    if continuation_model is not None:
+        continuation_prob = continuation_model.predict_proba(x)[:, 1]
+        # Expected delta marginalizes over exit risk: a player who fails to log
+        # a qualified season is scored at replacement level (-2.0 BPM).
+        exit_delta = np.minimum(REPLACEMENT_BPM - latest["bpm"].to_numpy(), 0.0)
+        bpm_delta_pred = continuation_prob * bpm_delta_if_plays + (1 - continuation_prob) * exit_delta
+    else:
+        continuation_prob = None
+        bpm_delta_pred = bpm_delta_if_plays
 
     out = latest[["player_id", "player_name", "season", "age", "bpm"]].copy()
+    out["source_season"] = out["season"]
+    out["season"] = out["source_season"].map(_next_season_label)
     out = out.rename(columns={"bpm": "current_bpm"})
 
-    for idx, label in enumerate(label_order):
-        out[f"{label}_probability"] = class_probs[:, idx]
+    # predict_proba columns follow the fitted model's classes_ (sorted labels),
+    # not the display order in label_order.json — map by name, never by index.
+    model_classes = [str(c) for c in classifier.classes_]
+    missing_classes = [label for label in label_order if label not in model_classes]
+    if missing_classes:
+        raise ValueError(f"Classifier is missing expected classes: {missing_classes}")
+    for label in label_order:
+        out[f"{label}_probability"] = class_probs[:, model_classes.index(label)]
 
     out["predicted_bpm_delta"] = bpm_delta_pred
+    out["predicted_bpm_delta_if_plays"] = bpm_delta_if_plays
+    out["continuation_probability"] = continuation_prob if continuation_prob is not None else np.nan
 
     if peak_model is not None:
         peak_prob = peak_model.predict_proba(x)[:, 1]
@@ -132,7 +186,15 @@ def main() -> None:
 
     prob_cols = [f"{label}_probability" for label in label_order]
     out["trajectory"] = out[prob_cols].idxmax(axis=1).str.replace("_probability", "", regex=False)
-    out["prediction_factors"] = latest.apply(lambda r: json.dumps(_format_factors(r)), axis=1)
+    out["prediction_factors"] = [
+        json.dumps(
+            _format_factors(
+                row,
+                continuation_prob=float(continuation_prob[i]) if continuation_prob is not None else None,
+            )
+        )
+        for i, (_, row) in enumerate(latest.iterrows())
+    ]
     out["model_version"] = MODEL_VERSION
     out["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -145,6 +207,7 @@ def main() -> None:
 
     print("=== Prediction Summary ===")
     print(f"Players predicted: {len(out):,}")
+    print(f"Prediction season range: {out['season'].min()} -> {out['season'].max()}")
     print(f"Trajectory classes present: {sorted(out['trajectory'].unique())}")
     print(f"Saved predictions to: {args.output}")
 

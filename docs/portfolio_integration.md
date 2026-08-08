@@ -8,7 +8,7 @@ Table: `public.player_predictions`
 Key fields:
 - `player_id`
 - `player_name`
-- `season`
+- `season` (forecast season, e.g. `2026-27`)
 - `age`
 - `current_bpm`
 - `trajectory`
@@ -20,6 +20,10 @@ Key fields:
 - `prediction_factors` (json array)
 - `model_version`
 - `updated_at`
+
+Semantics notes:
+- `regressing_probability` is exit-aware: it includes the chance the player logs no qualified season next year.
+- `predicted_bpm_delta` is the expected change marginalized over that exit risk (a player unlikely to play again is pulled toward replacement level, -2.0 BPM), not a conditional "if he plays" estimate.
 
 ## Frontend Safety Rules
 1. Use `SUPABASE_URL` + public anon key only in browser code.

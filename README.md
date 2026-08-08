@@ -25,8 +25,9 @@ This is an educational project focused on NBA data analysis. I am yet to figure 
 
 ## ML Objective
 Build a leakage-safe, script-based machine learning system that predicts:
-- Player trajectory next season: `improving`, `stable`, or `regressing`
-- Next-season BPM change
+- Player trajectory next season: `improving`, `stable`, or `regressing` (exit-aware: failing to log a qualified next season counts as regressing)
+- Next-season BPM change (expected value over exit risk; a conditional if-plays estimate is also emitted)
+- Probability the player logs a qualified season next year (continuation model)
 - Probability the current season is near eventual career peak
 
 ## ML Architecture
@@ -55,13 +56,25 @@ Core rules:
 
 ## Leakage Prevention
 - No random row splits: train/validation/test are chronological.
-- Targets only created when season `t+1` is consecutive.
+- Numeric BPM-change targets only created when season `t+1` is consecutive.
 - Rolling features are gap-aware and reset after non-consecutive seasons.
 - Feature inputs at season `t` only use information available through `t`.
+- Final shipped models are refit on train+validation; reported test metrics come from held-out later seasons only.
+
+## Survivorship-Bias Handling
+Roughly 25% of qualified player-seasons (and >40% for declining veterans) are not followed
+by another qualified season. Training only on survivors teaches the model that aging players
+with bad seasons "bounce back" (the ones who don't simply vanish from the data). To counter this:
+- The trajectory classifier labels a missing qualified next season as `regressing` when the league
+  played on without the player (rows in the newest data season stay unlabeled/censored).
+- A dedicated continuation classifier estimates P(qualified season next year).
+- `predicted_bpm_delta` marginalizes over exit risk: `p * delta_if_plays + (1 - p) * (replacement_bpm - current_bpm)`
+  with replacement level at -2.0 BPM (clamped so exiting never counts as improvement).
 
 ## Model Targets
-- `target_trajectory`: multiclass label from next-season BPM change threshold (default ±0.5 BPM)
-- `target_bpm_change`: numeric next-season BPM delta
+- `target_trajectory`: multiclass label from next-season BPM change threshold (default ±0.75 BPM), with exits labeled `regressing`
+- `target_bpm_change`: numeric next-season BPM delta (survivors only)
+- `target_played_next`: binary continuation label (qualified consecutive season logged or not)
 - `near_peak`: binary label for completed careers only, based on smoothed BPM proximity to eventual peak
 
 ## Commands
@@ -91,6 +104,10 @@ Run in the conda env (`nba-peak-analysis`) or equivalent Python 3.11 environment
    ```bash
    python -m ml.predict
    ```
+   Notes:
+   - Output `season` is the forecast season (next season), based on the player's latest available source season.
+   - Only players whose latest qualified season is within `--recency-years` (default 1) of the newest data season are included.
+   - `predicted_bpm_delta` is the exit-risk-adjusted expectation; `predicted_bpm_delta_if_plays` is the conditional estimate; `continuation_probability` is P(qualified season next year).
 
 5. Validate Supabase payload (no writes):
    ```bash

@@ -9,7 +9,13 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from ml.config import FeatureConfig, MODEL_FEATURES_PATH, PLAYER_SEASONS_PATH, TRAJECTORY_FEATURE_COLUMNS
+from ml.config import (
+    FeatureConfig,
+    MODEL_FEATURES_PATH,
+    PEAK_AGE,
+    PLAYER_SEASONS_PATH,
+    TRAJECTORY_FEATURE_COLUMNS,
+)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -119,12 +125,40 @@ def build_features(player_seasons: pd.DataFrame, threshold: float) -> pd.DataFra
     df["prior_career_high_bpm"] = df.groupby("player_url")["career_high_bpm_through_t"].shift(1)
     df["distance_from_career_high_bpm"] = df["career_high_bpm_through_t"] - df["bpm"]
 
+    # Availability relative to that season's schedule (handles lockout/COVID years).
+    season_max_games = df.groupby("season_start")["games"].transform("max")
+    df["games_pct"] = np.where(season_max_games > 0, df["games"] / season_max_games, np.nan)
+
+    # Age-curve terms let linear models express that mean reversion and
+    # minute changes carry different meaning on either side of the peak age.
+    age_offset = df["age"] - PEAK_AGE
+    df["age_curve_sq"] = age_offset**2
+    df["age_x_bpm_delta_1"] = age_offset * df["bpm_delta_1"]
+    df["age_x_mp_delta_1"] = age_offset * df["mp_delta_1"]
+
     next_season_start = df.groupby("player_url")["season_start"].shift(-1)
     next_bpm = df.groupby("player_url")["bpm"].shift(-1)
     has_consecutive_next = (next_season_start - df["season_start"]).eq(1)
 
     df["target_bpm_change"] = np.where(has_consecutive_next, next_bpm - df["bpm"], np.nan)
-    df["target_trajectory"] = df["target_bpm_change"].apply(lambda x: classify_trajectory(x, threshold))
+
+    # Exit-aware trajectory target: if the league played a season after t but
+    # the player logged no qualified consecutive season, that is treated as
+    # "regressing" rather than dropped. Without this, training only sees
+    # survivors and learns that aging players with bad seasons bounce back.
+    max_season_start = int(df["season_start"].max())
+    df["next_season_observable"] = df["season_start"] < max_season_start
+    df["target_played_next"] = np.where(
+        df["next_season_observable"], has_consecutive_next.astype(float), np.nan
+    )
+
+    trajectory_if_played = df["target_bpm_change"].apply(lambda x: classify_trajectory(x, threshold))
+    df["target_trajectory"] = np.select(
+        [has_consecutive_next, df["next_season_observable"]],
+        [trajectory_if_played, "regressing"],
+        default=None,
+    )
+    df["target_trajectory"] = df["target_trajectory"].where(df["target_trajectory"].notna(), np.nan)
 
     metadata_cols = [
         "player_id",
@@ -133,7 +167,12 @@ def build_features(player_seasons: pd.DataFrame, threshold: float) -> pd.DataFra
         "season",
         "season_end",
     ]
-    target_cols = ["target_bpm_change", "target_trajectory"]
+    target_cols = [
+        "target_bpm_change",
+        "target_trajectory",
+        "target_played_next",
+        "next_season_observable",
+    ]
     ordered_cols = metadata_cols + list(TRAJECTORY_FEATURE_COLUMNS) + target_cols
 
     return df[ordered_cols].copy()

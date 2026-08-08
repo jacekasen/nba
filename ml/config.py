@@ -21,6 +21,7 @@ TRAINING_METADATA_PATH = MODELS_DIR / "training_metadata.json"
 CLASSIFIER_MODEL_PATH = MODELS_DIR / "trajectory_classifier.joblib"
 REGRESSOR_MODEL_PATH = MODELS_DIR / "bpm_delta_regressor.joblib"
 PEAK_MODEL_PATH = MODELS_DIR / "near_peak_classifier.joblib"
+CONTINUATION_MODEL_PATH = MODELS_DIR / "continuation_classifier.joblib"
 FEATURE_COLUMNS_PATH = MODELS_DIR / "feature_columns.json"
 LABEL_ORDER_PATH = MODELS_DIR / "label_order.json"
 CONFUSION_MATRIX_CSV_PATH = MODELS_DIR / "confusion_matrix.csv"
@@ -61,7 +62,18 @@ TRAJECTORY_FEATURE_COLUMNS = [
     "prior_career_high_bpm",
     "career_high_bpm_through_t",
     "distance_from_career_high_bpm",
+    "games_pct",
+    "age_curve_sq",
+    "age_x_bpm_delta_1",
+    "age_x_mp_delta_1",
 ]
+
+# BPM is scaled so that a replacement-level player is -2.0; used as the
+# performance proxy for players who fail to log a qualified next season.
+REPLACEMENT_BPM = -2.0
+
+# Reference age for age-curve interaction features (approximate NBA peak age).
+PEAK_AGE = 27
 
 
 @dataclass(frozen=True)
@@ -77,7 +89,9 @@ class ModelingThresholds:
 class FeatureConfig:
     """Feature and target settings for the modeling table."""
 
-    trajectory_threshold: float = 0.5
+    # ±0.75 BPM: narrower bands are below the regressor's ~1.2 MAE resolution,
+    # which left "stable" nearly unlearnable.
+    trajectory_threshold: float = 0.75
 
 
 @dataclass(frozen=True)
@@ -91,6 +105,15 @@ class SplitConfig:
 
 
 @dataclass(frozen=True)
+class PredictionConfig:
+    """Settings for current-player prediction generation."""
+
+    # Only emit predictions for players whose latest qualified season ends
+    # within this many years of the newest season in the data.
+    recency_years: int = 1
+
+
+@dataclass(frozen=True)
 class PeakModelConfig:
     """Settings for near-peak probability model."""
 
@@ -100,4 +123,4 @@ class PeakModelConfig:
 
 
 RANDOM_SEED = 42
-MODEL_VERSION = "1.0.0"
+MODEL_VERSION = "1.1.0"
