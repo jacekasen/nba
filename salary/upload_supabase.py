@@ -53,7 +53,9 @@ def _parse_args() -> argparse.Namespace:
 def _json_safe(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, (str, int, bool)):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
         return value
     if isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
@@ -67,6 +69,43 @@ def _json_safe(value: Any) -> Any:
         except Exception:  # noqa: BLE001
             return None
     return value
+
+
+def _json_int(value: Any) -> int | None:
+    """Coerce CSV/pandas numerics to JSON integers (never 2125000.0)."""
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if hasattr(value, "item"):
+        try:
+            value = value.item()
+        except Exception:  # noqa: BLE001
+            return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        return int(float(text))
+    return int(value)
+
+
+def _json_float(value: Any) -> float | None:
+    raw = _json_safe(value)
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    return float(raw)
 
 
 def build_player_salary_payload(df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -96,14 +135,14 @@ def build_player_salary_payload(df: pd.DataFrame) -> list[dict[str, Any]]:
                 "season_start": int(row["season_start"]),
                 "season_end": int(row["season_end"]),
                 "team": str(row["team"]),
-                "salary": _json_safe(row.get("salary")),
-                "salary_cap": _json_safe(row.get("salary_cap")),
-                "cap_share": _json_safe(row.get("cap_share")),
+                "salary": _json_int(row.get("salary")),
+                "salary_cap": _json_int(row.get("salary_cap")),
+                "cap_share": _json_float(row.get("cap_share")),
                 "salary_source": str(row["salary_source"]),
                 "salary_quality": str(row["salary_quality"]),
-                "team_payroll_share": _json_safe(row.get("team_payroll_share")),
-                "team_known_salary_total": _json_safe(row.get("team_known_salary_total")),
-                "team_known_player_count": _json_safe(row.get("team_known_player_count")),
+                "team_payroll_share": _json_float(row.get("team_payroll_share")),
+                "team_known_salary_total": _json_int(row.get("team_known_salary_total")),
+                "team_known_player_count": _json_int(row.get("team_known_player_count")),
             }
         )
     return rows
@@ -121,7 +160,7 @@ def build_salary_cap_payload(df: pd.DataFrame) -> list[dict[str, Any]]:
                 "season": str(row["season"]),
                 "season_start": int(row["season_start"]),
                 "season_end": int(row["season_end"]),
-                "salary_cap": int(row["salary_cap"]),
+                "salary_cap": _json_int(row["salary_cap"]),
             }
         )
     return rows
@@ -140,15 +179,15 @@ def build_team_season_payload(df: pd.DataFrame) -> list[dict[str, Any]]:
                 "season": str(row["season"]),
                 "season_start": int(row["season_start"]),
                 "season_end": int(row["season_end"]),
-                "salary_cap": _json_safe(row.get("salary_cap")),
-                "team_known_salary_total": _json_safe(row.get("team_known_salary_total")),
-                "team_known_player_count": _json_safe(row.get("team_known_player_count")),
-                "total_cap_share": _json_safe(row.get("total_cap_share")),
-                "max_cap_share": _json_safe(row.get("max_cap_share")),
+                "salary_cap": _json_int(row.get("salary_cap")),
+                "team_known_salary_total": _json_int(row.get("team_known_salary_total")),
+                "team_known_player_count": _json_int(row.get("team_known_player_count")),
+                "total_cap_share": _json_float(row.get("total_cap_share")),
+                "max_cap_share": _json_float(row.get("max_cap_share")),
                 "payroll_share_available": bool(row.get("payroll_share_available"))
                 if pd.notna(row.get("payroll_share_available"))
                 else False,
-                "team_payroll_vs_cap": _json_safe(row.get("team_payroll_vs_cap")),
+                "team_payroll_vs_cap": _json_float(row.get("team_payroll_vs_cap")),
             }
         )
     return rows

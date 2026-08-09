@@ -15,3 +15,8 @@ data/05-modeling/*
 # Salary scrape caches / intermediate outputs (regenerable)
 data/01-raw/salaries/html/
 data/02-intermediate/salaries/
+
+# Licensed Dunks & Threes EPM exports
+data/EPM/
+
+data/EPM

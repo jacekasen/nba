@@ -140,6 +140,24 @@ Integration details and a TypeScript example are documented in:
 - Era effects and role/context shifts are not fully captured by box-score features alone.
 - Predictions are probabilistic estimates, not guarantees.
 
+## EPM Data
+
+Dunks & Threes actual regular-season EPM exports are stored privately in the
+`nba_player_epm` Supabase table. Raw licensed CSV files in `data/EPM/` are
+gitignored. The uploader validates filenames, season values, required columns,
+and duplicate player-season keys before any network write.
+
+```bash
+python -m epm.upload_supabase --dry-run
+
+set -a
+source .env.local
+set +a
+python -m epm.upload_supabase --apply
+```
+
+SQL migration: `supabase/migrations/20260809110000_create_nba_player_epm.sql`.
+
 ## Salary Analysis
 Historical salary analysis is intentionally separate from the ML pipeline (`salary/`).
 

@@ -25,8 +25,8 @@ from salary.config import (
     SCRAPE_FAILURES_PATH,
     SCRAPE_PROGRESS_PATH,
 )
+from ml.data import normalize_player_url, parse_year_id
 from salary.http import AccessBlockedError, HttpClient
-from ml.data import parse_year_id
 from salary.parsing import (
     classify_salary_quality,
     extract_player_name,
@@ -115,7 +115,11 @@ def candidate_players(
         raise ValueError(f"{players_csv} missing player_url column")
 
     players = players.copy()
-    players["player_url"] = players["player_url"].map(lambda value: normalize_player_url_or_raise(str(value)))
+    players["player_url"] = players["player_url"].map(normalize_player_url)
+    invalid_players = int(players["player_url"].isna().sum())
+    if invalid_players:
+        logger.warning("Dropping %s player inventory rows with invalid player_url", invalid_players)
+        players = players.loc[players["player_url"].notna()].copy()
     players["player_id"] = players["player_url"].map(player_id_from_url)
     if "player_name" not in players.columns:
         players["player_name"] = players["player_id"]
@@ -146,11 +150,17 @@ def candidate_players(
 
     elif stats_csv.exists():
         stats = pd.read_csv(stats_csv, usecols=["player_url", "year_id"])
-        stats["player_url"] = stats["player_url"].map(lambda value: normalize_player_url_or_raise(str(value)))
+        stats["player_url"] = stats["player_url"].map(normalize_player_url)
+        invalid_stats = int(stats["player_url"].isna().sum())
+        if invalid_stats:
+            logger.warning("Dropping %s stats rows with invalid player_url while filtering candidates", invalid_stats)
+            stats = stats.loc[stats["player_url"].notna()].copy()
         parsed = stats["year_id"].map(parse_year_id)
         stats["season"] = parsed.map(lambda item: item[0])
         stats["season_start"] = parsed.map(lambda item: item[1])
         start_year = parse_year_id(start_season)[1]
+        if start_year is None:
+            raise ValueError(f"Invalid start season: {start_season}")
         eligible_urls = set(stats.loc[stats["season_start"].ge(start_year - 5), "player_url"].dropna())
         # Keep a small lookback so late-career/pre-cap players who overlap the early
         # cap years are still considered, while skipping obviously pre-modern careers.
