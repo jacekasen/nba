@@ -118,3 +118,42 @@ Model version: 1.0
 ## Recommended API Pattern
 - Client-side search for portfolio scale datasets.
 - Optional server-side proxy if you need stricter request control or analytics.
+
+## Salary Tables Integration
+
+The salary pipeline (`salary/`) publishes three publicly readable tables that back the portfolio's
+NBA Salary Cap Explorer at `/projects/nba/salaries`:
+
+| Table | Role in the UI |
+| --- | --- |
+| `player_salaries` | One row per player-season-team. Drives the roster bars, donut, career history, and leaderboard. |
+| `salary_caps` | Season cap values. Used for the cap headline and to detect seasons with no cap. |
+| `team_season_salaries` | Pre-aggregated team-seasons. Used to build the team/season selectors without scanning the salary table. |
+
+Query shapes the frontend relies on (all indexed by the migration):
+
+```text
+team + season      -> roster view
+player_id          -> career salary history
+cap_share desc     -> leaderboard, optionally filtered by season
+```
+
+Semantics the UI depends on:
+
+- `cap_share` is percentage points against the league cap and can exceed 100 (Jordan, 1996-97).
+  It is never treated as a slice of a 100% whole.
+- `team_payroll_share` is salary divided by the team's known payroll, and is null when a team-season
+  has fewer than `MIN_TEAM_ROWS_FOR_PAYROLL_SHARE` known salaries. The donut view disables itself in
+  that case rather than implying complete coverage.
+- `salary = null` means the amount is unknown. It is displayed as "not recorded" and excluded from
+  payroll totals — never rendered as `$0`.
+
+Known issues to fix upstream rather than in the frontend:
+
+- `team_season_salaries.team_known_player_count` counts every record in the group, including rows
+  with a null salary, so it is not comparable to the identically named column in `player_salaries`
+  (which counts only known salaries). The frontend recomputes payroll coverage from the records it
+  fetches.
+- Some `player_name` values are stored as UTF-8 bytes decoded as Latin-1 (`Anderson VarejÃ£o`,
+  `Bogdan BogdanoviÄ‡`); roughly 148 distinct names are affected. The frontend repairs these for
+  display only.
