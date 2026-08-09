@@ -8,14 +8,14 @@ This is an educational project focused on NBA data analysis. I am yet to figure 
 ### Setup
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/jacekasen/nba-peak-analysis.git
-   cd nba-peak-analysis
+   git clone https://github.com/jacekasen/nba.git
+   cd nba
    ```
 
 2. **Create a Conda environment**
    ```bash
-   conda create --name nba-peak-analysis python=3.11
-   conda activate nba-peak-analysis
+   conda create --name nba python=3.11
+   conda activate nba
    ```
 
 3. **Install dependencies**
@@ -78,7 +78,7 @@ with bad seasons "bounce back" (the ones who don't simply vanish from the data).
 - `near_peak`: binary label for completed careers only, based on smoothed BPM proximity to eventual peak
 
 ## Commands
-Run in the conda env (`nba-peak-analysis`) or equivalent Python 3.11 environment.
+Run in the conda env (`nba`) or equivalent Python 3.11 environment.
 
 0. Run the end-to-end pipeline in one command:
    ```bash
