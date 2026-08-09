@@ -3,7 +3,9 @@
 **Author:** Jace Kasen  
 
 ### Project Overview
-This is an educational project focused on NBA data analysis. I am yet to figure out the exact direction.
+Educational NBA data analysis project covering:
+- leakage-safe player trajectory / BPM machine learning (`ml/`)
+- historical salary analysis via Cap Share (`salary/`)
 
 ### Setup
 1. **Clone the repository**
@@ -137,3 +139,55 @@ Integration details and a TypeScript example are documented in:
 - Near-peak labeling depends on a career-completion heuristic and is sensitive to right-censoring.
 - Era effects and role/context shifts are not fully captured by box-score features alone.
 - Predictions are probabilistic estimates, not guarantees.
+
+## Salary Analysis
+Historical salary analysis is intentionally separate from the ML pipeline (`salary/`).
+
+### Objective
+Measure NBA player salaries relative to the salary cap, not only as nominal dollars:
+
+```text
+cap_share = salary / salary_cap * 100
+```
+
+Target historical range: approximately **1984-85 through the present** (NBA salary-cap era).
+
+### Source
+Basketball Reference player salary histories and salary-cap history. Scraping is an offline ingestion process with local HTML caching, rate limiting, resume support, and clean stops on access blocks. The eventual website must never scrape Basketball Reference on user requests.
+
+### Commands
+```bash
+# Representative sample (recommended first run)
+python -m salary.run_all --sample
+
+# Or step-by-step
+python -m salary.scrape --sample
+python -m salary.caps
+python -m salary.normalize
+python -m salary.validate
+
+# Full historical collection (slow; resumes and reuses cache)
+python -m salary.run_all
+
+# Supabase (dry-run default; writes require --apply)
+python -m salary.upload_supabase --dry-run
+python -m salary.upload_supabase --apply
+```
+
+Useful scrape flags: `--player`, `--limit`, `--start-season`, `--end-season`, `--refresh`, `--resume`.
+
+### Outputs
+- `data/02-intermediate/salaries/raw_player_salaries.csv`
+- `data/02-intermediate/salaries/salary_caps.csv`
+- `data/05-modeling/player_salaries.csv` (canonical)
+- `data/05-modeling/team_season_salaries.csv`
+- `data/05-modeling/player_salary_history.csv`
+- `data/05-modeling/salary_validation_report.json`
+- SQL migration: `supabase/migrations/20260809080000_create_player_salaries.sql`
+
+### Historical-data Limitations
+- Coverage and reliability are uneven before the modern contract era.
+- 1986-87 and 1989-90 may be sparse or incomplete.
+- Some older values in the upstream source may be estimated or incomplete; this pipeline does not invent missing salaries and conservatively labels extracted amounts as `historical_unknown_quality` unless stronger provenance is available.
+
+Methodology details: `docs/salary_data_methodology.md`.
