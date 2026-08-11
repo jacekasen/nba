@@ -3,20 +3,22 @@ __pycache__/
 .env
 .env.local
 .DS_Store
-docs/prompt.md
-docs/prompt2.md
+.pytest_cache/
+.vscode/
 
 # Generated ML artifacts
 models/*
 !models/.gitkeep
-data/05-modeling/*
-!data/05-modeling/.gitkeep
+data/modeling/*
+!data/modeling/.gitkeep
 
 # Salary scrape caches / intermediate outputs (regenerable)
-data/01-raw/salaries/html/
-data/02-intermediate/salaries/
+data/raw-salaries/
+data/salaries/*
+!data/salaries/.gitkeep
+
+# Optional scrape checkpoints
+data/.cache/
 
 # Licensed Dunks & Threes EPM exports
 data/EPM/
-
-data/EPM

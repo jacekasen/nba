@@ -8,7 +8,7 @@ Predict each player's short-term trajectory (`improving`, `stable`, `regressing`
 - Stable identity key: `player_url` (never `player_name`)
 
 ## Canonical Modeling Dataset
-Built by `python -m ml.data` into `data/05-modeling/player_seasons.csv`.
+Built by `python -m ml.data` into `data/modeling/player_seasons.csv`.
 
 Processing steps:
 1. Normalize and validate `player_url`.

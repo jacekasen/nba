@@ -41,9 +41,9 @@ Pipeline modules live in `ml/`:
 - `ml/upload_supabase.py`: dry-run-safe Supabase payload validation/upload
 
 Key output locations:
-- `data/05-modeling/player_seasons.csv`
-- `data/05-modeling/model_features.csv`
-- `data/05-modeling/current_player_predictions.csv`
+- `data/modeling/player_seasons.csv`
+- `data/modeling/model_features.csv`
+- `data/modeling/current_player_predictions.csv`
 - `models/` (joblib artifacts + metrics/metadata)
 
 ## Dataset Construction
@@ -195,12 +195,12 @@ python -m salary.upload_supabase --apply
 Useful scrape flags: `--player`, `--limit`, `--start-season`, `--end-season`, `--refresh`, `--resume`.
 
 ### Outputs
-- `data/02-intermediate/salaries/raw_player_salaries.csv`
-- `data/02-intermediate/salaries/salary_caps.csv`
-- `data/05-modeling/player_salaries.csv` (canonical)
-- `data/05-modeling/team_season_salaries.csv`
-- `data/05-modeling/player_salary_history.csv`
-- `data/05-modeling/salary_validation_report.json`
+- `data/salaries/raw_player_salaries.csv`
+- `data/salaries/salary_caps.csv`
+- `data/modeling/player_salaries.csv` (canonical)
+- `data/modeling/team_season_salaries.csv`
+- `data/modeling/player_salary_history.csv`
+- `data/modeling/salary_validation_report.json`
 - SQL migration: `supabase/migrations/20260809080000_create_player_salaries.sql`
 
 ### Historical-data Limitations

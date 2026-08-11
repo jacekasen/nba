@@ -7,24 +7,25 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
 
-RAW_SALARIES_DIR = DATA_DIR / "01-raw" / "salaries"
-HTML_CACHE_DIR = RAW_SALARIES_DIR / "html"
-PLAYER_HTML_DIR = HTML_CACHE_DIR / "players"
-CAP_HTML_PATH = HTML_CACHE_DIR / "salary_cap_history.html"
+# Cached Basketball-Reference HTML (regenerable).
+RAW_SALARIES_DIR = DATA_DIR / "raw-salaries"
+PLAYER_HTML_DIR = RAW_SALARIES_DIR / "players"
+CAP_HTML_PATH = RAW_SALARIES_DIR / "salary_cap_history.html"
 
-INTERMEDIATE_SALARIES_DIR = DATA_DIR / "02-intermediate" / "salaries"
+# Parsed salary intermediates (regenerable).
+INTERMEDIATE_SALARIES_DIR = DATA_DIR / "salaries"
 RAW_PLAYER_SALARIES_PATH = INTERMEDIATE_SALARIES_DIR / "raw_player_salaries.csv"
 SALARY_CAPS_PATH = INTERMEDIATE_SALARIES_DIR / "salary_caps.csv"
 SCRAPE_PROGRESS_PATH = INTERMEDIATE_SALARIES_DIR / "scrape_progress.json"
 SCRAPE_FAILURES_PATH = INTERMEDIATE_SALARIES_DIR / "scrape_failures.csv"
 
-MODELING_DIR = DATA_DIR / "05-modeling"
+MODELING_DIR = DATA_DIR / "modeling"
 PLAYER_SALARIES_PATH = MODELING_DIR / "player_salaries.csv"
 TEAM_SEASON_SALARIES_PATH = MODELING_DIR / "team_season_salaries.csv"
 PLAYER_SALARY_HISTORY_PATH = MODELING_DIR / "player_salary_history.csv"
 VALIDATION_REPORT_PATH = MODELING_DIR / "salary_validation_report.json"
 
-PLAYER_URLS_PATH = DATA_DIR / "01-pages" / "all_nba_players.csv"
+PLAYER_URLS_PATH = DATA_DIR / "player_pages.csv"
 RAW_STATS_PATH = DATA_DIR / "nba_player_stats.csv"
 
 BASE_URL = "https://www.basketball-reference.com"

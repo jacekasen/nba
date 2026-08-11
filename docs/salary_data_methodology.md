@@ -24,7 +24,7 @@ Historical salaries and salary-cap values are ingested from [Basketball Referenc
 
 Ingestion path:
 
-1. Player inventory (`data/01-pages/all_nba_players.csv`), optionally filtered by existing season coverage in `data/nba_player_stats.csv`
+1. Player inventory (`data/player_pages.csv`), optionally filtered by existing season coverage in `data/nba_player_stats.csv`
 2. Individual Basketball Reference player pages
 3. Hidden/`<!-- -->` commented HTML table `all_salaries`
 4. Raw player-season-team salary rows
@@ -63,7 +63,7 @@ Because Basketball Reference does not expose dependable per-row provenance flags
 
 ## Scraper Behavior
 
-- Every downloaded HTML page is cached under `data/01-raw/salaries/html/`.
+- Every downloaded HTML page is cached under `data/raw-salaries/`.
 - Cached pages are reused unless `--refresh` is supplied.
 - Requests use a descriptive research User-Agent.
 - Requests are rate-limited substantially (default 5 seconds between network calls).
@@ -84,12 +84,12 @@ Because Basketball Reference does not expose dependable per-row provenance flags
 
 ## Outputs
 
-- `data/02-intermediate/salaries/raw_player_salaries.csv`
-- `data/02-intermediate/salaries/salary_caps.csv`
-- `data/05-modeling/player_salaries.csv` (canonical)
-- `data/05-modeling/team_season_salaries.csv`
-- `data/05-modeling/player_salary_history.csv`
-- `data/05-modeling/salary_validation_report.json`
+- `data/salaries/raw_player_salaries.csv`
+- `data/salaries/salary_caps.csv`
+- `data/modeling/player_salaries.csv` (canonical)
+- `data/modeling/team_season_salaries.csv`
+- `data/modeling/player_salary_history.csv`
+- `data/modeling/salary_validation_report.json`
 
 ## Reproduction
 

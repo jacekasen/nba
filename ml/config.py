@@ -7,9 +7,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
-MODELING_DIR = DATA_DIR / "05-modeling"
+MODELING_DIR = DATA_DIR / "modeling"
 MODELS_DIR = REPO_ROOT / "models"
-FIGURES_DIR = REPO_ROOT / "figures" / "modeling"
 
 RAW_STATS_PATH = DATA_DIR / "nba_player_stats.csv"
 PLAYER_SEASONS_PATH = MODELING_DIR / "player_seasons.csv"

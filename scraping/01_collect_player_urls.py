@@ -20,8 +20,8 @@ ALL_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 RATE_LIMIT_SECONDS = 3.0  # Basketball-Reference allows 20 requests/minute
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT = REPO_ROOT / "data" / "01-pages" / "all_nba_players.csv"
-DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "data" / "01-pages" / "checkpoints"
+DEFAULT_OUTPUT = REPO_ROOT / "data" / "player_pages.csv"
+DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "data" / ".cache" / "player_url_checkpoints"
 
 
 def build_driver() -> webdriver.Chrome:

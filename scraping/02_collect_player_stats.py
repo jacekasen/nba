@@ -22,9 +22,9 @@ TARGET_STATS = ["year_id", "age", "team_name_abbr", "games", "mp", "per", "bpm",
 COLUMNS = ["player_name", "player_url"] + TARGET_STATS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_URLS = REPO_ROOT / "data" / "01-pages" / "all_nba_players.csv"
+DEFAULT_URLS = REPO_ROOT / "data" / "player_pages.csv"
 DEFAULT_OUTPUT = REPO_ROOT / "data" / "nba_player_stats.csv"
-DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "data" / "02-player-stats-extraction" / "checkpoints"
+DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "data" / ".cache" / "player_stats_checkpoints"
 
 # player_name is not a stable key: Basketball-Reference has dozens of distinct players who share
 # a name (e.g. two different "Bobby Jones"s). player_url is the real unique identifier, so all
