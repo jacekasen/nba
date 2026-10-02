@@ -3,9 +3,11 @@
 **Author:** Jace Kasen  
 
 ### Project Overview
-Educational NBA data analysis project covering:
-- leakage-safe player trajectory / BPM machine learning (`ml/`)
-- historical salary analysis via Cap Share (`salary/`)
+Educational NBA analytics monorepo organized into four cohesive sub-projects:
+- **`ml/`**: Leakage-safe player career trajectory & BPM machine learning pipeline
+- **`salary/`**: Historical salary cap & era-adjusted Cap Share analysis
+- **`epm/`**: Estimated Plus-Minus (EPM) historical metrics ingestion & sync
+- **`trajectories/`**: Game-level season trajectories & rolling plus-minus (1996–97 through 2025–26)
 
 ### Setup
 1. **Clone the repository**

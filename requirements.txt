@@ -5,8 +5,10 @@ selenium
 beautifulsoup4
 webdriver_manager
 requests
+curl_cffi
 
 pandas
+pyarrow
 numpy
 matplotlib
 seaborn

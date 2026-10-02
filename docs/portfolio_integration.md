@@ -157,3 +157,17 @@ Known issues to fix upstream rather than in the frontend:
 - Some `player_name` values are stored as UTF-8 bytes decoded as Latin-1 (`Anderson VarejÃ£o`,
   `Bogdan BogdanoviÄ‡`); roughly 148 distinct names are affected. The frontend repairs these for
   display only.
+
+## Season Trajectories Integration
+
+The trajectories pipeline (`trajectories/`) publishes play-by-play era game logs to:
+
+| Table | Role in the UI |
+| --- | --- |
+| `player_game_logs` | Game-level player stats, team game number (1–82), minutes, and rolling plus-minus averages (5, 10, 15). Drives the interactive 1–82 trajectory explorer and player comparison. |
+
+Query shape:
+```text
+player_id + season -> chronological game logs (max 82 rows)
+```
+Indexed on `(player_id, season)` for sub-25ms response times.

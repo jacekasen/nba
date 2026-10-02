@@ -22,3 +22,7 @@ data/.cache/
 
 # Licensed Dunks & Threes EPM exports
 data/EPM/
+
+# Trajectories raw logs and normalized outputs (regenerable)
+data/trajectories/raw/
+data/trajectories/normalized/
